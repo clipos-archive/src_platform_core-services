@@ -1,0 +1,23 @@
+/update_root	/			none	bind,ro,nodev,noatime
+@clip32@/lib			/lib			none	bind,ro,nosuid,nodev,noatime
+@clip64@/lib64			/lib64			none	bind,ro,nosuid,nodev,noatime
+/usr			/usr			none	bind,ro,nodev,noatime
+/mounts/usr		/usr/local		none	bind,rw,nosuid,nodev,noatime
+/mounts/viewers		/viewers		none	bind,rw,nosuid,nodev,noexec,noatime
+/etc/core		/etc/core		none	bind,ro,nosuid,nodev,noexec,noatime
+/etc/shared		/etc/shared		none	bind,ro,nosuid,nodev,noexec,noatime
+/mounts/admin_priv/etc.admin	/etc/admin	none	bind,rw,nosuid,nodev,noexec,noatime
+/mounts/update_priv/var	 /var			none	bind,rw,nosuid,nodev,noexec,noatime
+/mounts/update_priv/var/shared /var/shared	none 	bind,rw,nosuid,nodev,noexec,noatime,nolock,nofollow
+/mounts/update_priv/root /root			none	bind,rw,nosuid,nodev,noexec,noatime
+/mounts/update_priv/dev	 /dev			none	bind,ro,nosuid,noexec,noatime
+/mounts/update_priv/tmp	 /tmp			none	bind,rw,mode=1777,nosuid,nodev,noexec,noatime
+/var/pkg		/var/pkg		none	bind,rw,nosuid,nodev,noatime
+
+/mounts/admin_root	/mounts/admin_root	none	bind,rw,nosuid,noexec,nodev,noatime
+/mounts/admin_priv/var	/mounts/admin_root/var	none	bind,rw,nosuid,nodev,noexec,noatime
+/mounts/audit_root	/mounts/audit_root	none	bind,rw,nosuid,noexec,nodev,noatime
+/mounts/user_root	/mounts/user_root	none	bind,rw,nosuid,noexec,nodev,noatime
+
+proc			/proc			proc	ro,nodev,nosuid,noexec,nolock,noatime
+pts			/dev/pts		devpts	newinstance,ptmxmode=0666,gid=5,mode=620,nosuid,noexec,nolock,noatime

@@ -1,0 +1,3 @@
+# core services for CLIP : core update, etc...
+
+Used by app-clip/core-services from CLIP OS.

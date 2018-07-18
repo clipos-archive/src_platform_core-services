@@ -1,0 +1,25 @@
+#!/sbin/runscript
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# Copyright © 2007-2018 ANSSI. All Rights Reserved.
+# Copyright 2007 SGDN/DCSSI
+# Copyright 2012-2014 SGDSN/ANSSI
+# Author: Vincent Strubel <clipos@ssi.gouv.fr>
+# All rights reserved
+
+description="Start sshd in the audit jail"
+
+depend() {
+	need reducecap clip_audit netlocal jail_init
+	after clip_apps_install
+}
+
+
+start() {
+	if [[ -x /usr/local/bin/ssh-update-known-hosts ]]; then
+		/usr/local/bin/ssh-update-known-hosts >/dev/null \
+			|| ewarn "Failed to update known_hosts"
+	fi
+	ebegin "Starting audit sshd"
+	vsctl "audit" enter -i /dev/null -o /dev/null -- /sbin/sshd
+	eend $?
+}

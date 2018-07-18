@@ -1,0 +1,62 @@
+#!/sbin/runscript
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# Copyright © 2007-2018 ANSSI. All Rights Reserved.
+# Copyright 2006-2008 SGDN/DCSSI
+# Copyright 2009-2013 SGDSN/ANSSI
+# Author: Vincent Strubel <clipos@ssi.gouv.fr>
+# All rights reserved
+
+description="Set up the UPDATE jail"
+
+depend() {
+	need reducecap clip_audit netlocal jail_init
+}
+
+import_files() {
+	source "/etc/conf.d/jail-net"
+	source "/lib/clip/jails.sub"
+}
+
+
+get_conf() {
+	source "/lib/clip/import.sub"
+	source "/lib/clip/net.sub"
+	conf_file="/etc/admin/conf.d/net"
+	local import_addresses="UPDATE_ADDR"
+
+	import_conf_noerr "${conf_file}" "${_IMPORT_FILTER_ADDR}|virtual" $import_addresses 2>/dev/null || return 1
+}
+
+start() {
+	import_files
+	if ! get_conf ; then
+		einfo "No UPDATE_ADDR, updates will be local only"
+	fi
+
+	ebegin "Setting up update service"
+
+	local opts="-a ${UPDATE_LOCAL_ADDR}/255.255.255.255 -l ${UPDATE_LOCAL_ADDR}"
+	if [[ -n "${UPDATE_ADDR}" && "${UPDATE_ADDR}" != "virtual" ]]; then
+		opts="${opts} -a ${UPDATE_ADDR}/255.255.255.255 -b ${UPDATE_ADDR}"
+	fi
+
+	if ! jail_setup_wait "update" ${opts}; then
+		eend 1 "Failed to set up update jail"
+		return 1
+	fi
+
+	local ret=0
+	vsctl update enter -i /dev/null -o /dev/null \
+		-- /bin/cleanup_log.sh  || ret=1
+	vsctl update enter -i /dev/null -o /dev/null \
+		-- /sbin/crond  || ret=1
+	eend $ret
+}
+
+stop() {
+	import_files
+
+	ebegin "Stopping update service"
+	jail_terminate "update"
+	eend $?	
+}

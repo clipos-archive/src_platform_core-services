@@ -1,0 +1,5 @@
+TYPE="audit"
+JAIL_NAME="Socle/AUDIT"
+ENCRYPTED_ID="\x12\x12\x12\x12"
+SIGNED_ID="\x02\x02\x02\x02"
+USB_USER="_audit"

@@ -1,0 +1,36 @@
+#!/sbin/runscript
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# Copyright © 2007-2018 ANSSI. All Rights Reserved.
+# Copyright 2006 SGDN/DCSSI
+# Copyright 2012-2013 SGDSN/ANSSI
+# Author: Vincent Strubel <clipos@ssi.gouv.fr>
+# All rights reserved
+
+description="Set up the X11 filesystem tree"
+
+depend() {
+	need localmount veriexec
+	before xdm reducecap
+}
+
+import_files() {
+	source "/lib/clip/mount.sub"
+}
+
+start() {
+	import_files 
+
+	local layout="/mounts/user_priv/var/run/viewmode"
+	[ -f "${layout}" ] || echo "mixborder" >"${layout}"
+
+	ebegin "Creating x11 tree"
+	do_mounts "/" "/x11" "/etc/fstab.x11"
+	eend $?
+}
+
+stop() {
+	import_files 
+
+	do_umounts "/x11" "/etc/fstab.x11" \
+		|| ewarn "Failed to unmount X11 tree"
+}

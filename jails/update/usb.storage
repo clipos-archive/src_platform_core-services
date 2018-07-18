@@ -1,0 +1,4 @@
+TYPE="admin"
+JAIL_NAME="Socle/UPDATE"
+ENCRYPTED_ID="\x13\x13\x13\x13"
+SIGNED_ID="\x03\x03\x03\x03"

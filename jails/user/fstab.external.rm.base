@@ -1,0 +1,4 @@
+/mounts/viewers         /viewers                none	bind,ro,nosuid,nodev,noatime,nolock
+/mounts/xauth           /xauth          	none	bind,rw,mode=1777,nosuid,nodev,noexec,noatime
+/var/run/ssm_key        /var/run/ssm_key        none    bind,rw,noexec,nodev,nosuid,noatime
+/var/run/ssm_display    /var/run/ssm_display    none    bind,rw,noexec,nodev,nosuid,noatime

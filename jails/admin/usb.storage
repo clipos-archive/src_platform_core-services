@@ -1,0 +1,5 @@
+TYPE="admin"
+JAIL_NAME="Socle/ADMIN"
+ENCRYPTED_ID="\x11\x11\x11\x11"
+SIGNED_ID="\x01\x01\x01\x01"
+USB_USER="_admin"

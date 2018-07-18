@@ -1,0 +1,10 @@
+# /bin is needed for CTRL+ALT+Fn commutation. Don't ask me why
+/bin			/bin		ro,nosuid,nodev,noatime
+/lib			/lib		ro,nosuid,nodev,noatime
+/usr			/usr		ro,nodev,noatime
+/mounts/usr		/usr/local	ro,nodev,noatime
+/mounts/x11_priv/var	/var		rw,noexec,nosuid,nodev,noatime
+/mounts/var/run/authdir	/var/run/authdir	rw,noexec,nosuid,nodev,noatime
+/proc			/proc		ro,noexec,nosuid,nodev,nolock,noatime
+/sys			/sys		ro,noexec,nosuid,nodev,noatime
+/tmp			/tmp		rw,mode=1777,nosuid,nodev,noexec,noatime

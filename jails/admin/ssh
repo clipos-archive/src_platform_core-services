@@ -1,0 +1,4 @@
+[[ -n "${ADMIN_LOCAL_ADDR}" ]] || source /etc/conf.d/jail-net
+SSH_ADDR="${ADMIN_LOCAL_ADDR}"
+SSH_PORT="22"
+SSH_HOST_KEY_PATH="/mounts/admin_root/etc/ssh"

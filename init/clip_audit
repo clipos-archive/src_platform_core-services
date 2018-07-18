@@ -1,0 +1,103 @@
+#!/sbin/runscript
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# Copyright © 2007-2018 ANSSI. All Rights Reserved.
+# Copyright 2006-2008 SGDN/DCSSI
+# Copyright 2009-2014 SGDSN/ANSSI
+# Author: Vincent Strubel <clipos@ssi.gouv.fr>
+# All rights reserved
+
+description="Set up the AUDIT jail" 
+
+depend() {
+	need clock hostname veriexec netlocal jail_init
+	provide logger
+}
+
+import_files() {
+	source "/etc/conf.d/jail-net"
+	source "/lib/clip/jails.sub"
+}
+
+get_conf() {
+	local net_conf="/etc/admin/conf.d/net"
+	local log_conf="/etc/audit/syslog"
+	local fqdn_filter="([0-9a-zA-Z]+\.)*[0-9a-zA-Z]+"
+
+	source "/etc/conf.d/net"
+	source "/lib/clip/import.sub"
+	source "/lib/clip/net.sub"
+	local admin_if=""
+	IMPORT_ADDRESSES="AUDIT_ADDR"
+	import_conf_noerr "${net_conf}" "${_IMPORT_FILTER_ADDR}|virtual" ${IMPORT_ADDRESSES} 2>/dev/null \
+		|| return 1
+
+	YESNO_VARS="REMOTE_LOGGING REMOTE_LOG_TLS REMOTE_LOG_TLS_CLIENTCERT"
+	YESNO_VARS="${YESNO_VARS} REMOTE_LOG_NETWORKING REMOTE_LOG_UPDATE REMOTE_LOG_SEC_ALERT REMOTE_LOG_SEC_WARNING REMOTE_LOG_SEC_INFO REMOTE_LOG_OTHER"
+
+	import_conf_all "${log_conf}" "yes|no" ${YESNO_VARS} 2>/dev/null
+	import_conf_noerr "${log_conf}" "${fqdn_filter}" "REMOTE_LOG_HOST" 2>/dev/null
+	import_conf_noerr "${log_conf}" "[0-9]{2,5}" "REMOTE_LOG_PORT" 2>/dev/null
+}
+
+syslog_wait_loop() {
+	local ctx="${1}"
+	local -i tskcnt cnt
+	for cnt in {0..9}; do
+		tskcnt="$(awk '$1 == "Tasks:" {print $2}' "/proc/virtual/${ctx}/status")"
+		[[ ${tskcnt} -gt 1 ]] && return 0
+		sleep 0.5
+	done
+
+	ewarn "Timed-out waiting for syslog-ng"
+	return 1
+}
+
+start_syslog() {
+	local ctx="${1}"
+	# generate syslog-ng.conf
+	OUTPUT="/var/run/syslog-ng.conf" source "/etc/syslog-ng/syslog-ng.conf"
+	if [[ $? -ne 0 ]]; then
+		ewarn "Failed to generate syslog configuration"
+		return 1
+	fi
+	syslog-ng --pidfile /tmp/syslog-ng.pid -f /var/run/syslog-ng.conf \
+		-c /tmp/syslog-ng.ctl \
+		-x "${ctx}" -u syslog -g syslog 1>/dev/null 2>/dev/null \
+		|| true # Note: returns 1, expected
+	syslog_wait_loop "${ctx}" || return 1
+}
+
+start() {
+	import_files
+	get_conf
+
+	ebegin "Setting up audit service"
+	local ctx="$(</etc/jails/audit/context)"
+	
+	local opt="-a ${AUDIT_LOCAL_ADDR}/255.255.255.255 -l ${AUDIT_LOCAL_ADDR}"
+	if [[ -n "${AUDIT_ADDR}" && "${AUDIT_ADDR}" != "virtual" ]]; then
+		opt="${opt} -a ${AUDIT_ADDR}/255.255.255.255 -b ${AUDIT_ADDR}"
+	fi
+
+	if ! jail_setup_wait "audit" ${opt}; then
+		eend 1 "Failed to set up audit jail"
+		return 1
+	fi
+	
+	if ! start_syslog "${ctx}"; then
+		eend 1 "Failed to start syslog"
+		return 1
+	fi
+	eend 0
+
+	# Share core log socket with strongswan.
+	mount --bind /dev/log /ike/dev/log
+}
+
+stop() {
+	import_files
+	ebegin "Stopping audit services"
+	jail_terminate "audit"
+	eend $?
+	umount /ike/dev/log
+}

@@ -1,0 +1,103 @@
+#!/sbin/runscript
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# Copyright © 2007-2018 ANSSI. All Rights Reserved.
+# Copyright 2006 SGDN/DCSSI
+# Copyright 2012-2013 SGDSN/ANSSI
+# Author: Vincent Strubel <clipos@ssi.gouv.fr>
+# All rights reserved
+
+description="Set up the USER jail"
+
+depend() {
+	need localmount veriexec reducecap
+	before xdm 
+}
+
+import_files() {
+	source "/etc/conf.d/jail-net"
+	source "/etc/conf.d/clip"
+	source "/lib/clip/jails.sub"
+}
+
+
+create_x11_sockdir() {
+	local orig="/tmp/.X11-unix"
+	local dst="/mounts/user_priv/var/run/X11-unix"
+
+	if [[ ! -d "${orig}" ]]; then
+		mkdir -m 1777 "${orig}" || return 1
+	fi
+	if [[ ! -d "${dst}" ]]; then
+		mkdir -m 0644 "${dst}" || return 1
+	fi
+	return 0
+}
+
+create_smartcard_sockdir() {
+	local orig="/var/run/smartcard"
+	local dst="/mounts/user_priv/var/run/smartcard"
+
+	if [[ ! -d "${orig}" ]]; then
+		mkdir -m 1777 "${orig}" || return 1
+	fi
+	if [[ ! -d "${dst}" ]]; then
+		mkdir -m 0644 "${dst}" || return 1
+	fi
+	return 0
+}
+
+start() {
+	import_files
+
+	# Do this here, when the user view is supposedly inactive, to avoid
+	# race conditions
+	if [[ -n "${CLIP_JAILS}" ]]; then
+		for server in ${CLIP_JAILS}; do
+			if test -f /mounts/xauth/${server}/xauthority ; then
+				rm -f /mounts/xauth/${server}/xauthority
+			fi
+		done
+	fi
+
+	ebegin "Setting up user service"
+		
+	if ! create_x11_sockdir; then
+		eend 1 "Failed to create X11 socket dirs"
+		return 1
+	fi
+
+	if ! create_smartcard_sockdir; then
+		eend 1 "Failed to create smartcard socket dirs"
+		return 1
+	fi
+
+	if ! jail_setup_wait "user" -a "${USER_LOCAL_ADDR}/255.255.255.255"; then
+		eend 1 "Failed to set up USER jail"
+		return 1
+	fi
+
+	start-stop-daemon --start -x /usr/sbin/pwcheckd -- \
+		-s user:self:/mounts/user_priv/var/run/pwcheckd
+	eend $? "Failed to start pwcheckd"
+
+	# I don't really have an opinion on where this should go, so why
+	# not here...
+	echo "level: 0" > /usr/local/var/usb_status
+
+	for f in /usr/local/var/xdom_{focus,rm}; do
+		[ -e "${f}" ] && rm -rf "${f}"
+		:>"${f}"
+		chgrp crypthomes -- "${f}"
+		chmod 0664 -- "${f}"
+	done
+}
+
+stop() {
+	import_files
+
+	local ret=0
+	ebegin "Stopping user service"
+	jail_terminate "user" || ret=1
+	start-stop-daemon --stop -x /usr/sbin/pwcheckd || ret=1
+	eend $?
+}

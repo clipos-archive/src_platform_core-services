@@ -1,0 +1,93 @@
+#!/sbin/runscript
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# Copyright © 2007-2018 ANSSI. All Rights Reserved.
+# Copyright 2007-2008 SGDN/DCSSI
+# Copyright 2009-2014 SGDSN/ANSSI
+# Author: Vincent Strubel <clipos@ssi.gouv.fr>
+# All rights reserved
+
+description="Set up the ADMIN jail" 
+
+depend() {
+	need reducecap clip_audit netlocal jail_init
+	after clip_apps_install
+}
+
+import_files() {
+	source "/lib/clip/jails.sub"
+	source "/etc/conf.d/jail-net"
+}
+
+get_conf() {
+	source "/etc/conf.d/net"
+	source "/lib/clip/import.sub"
+	source "/lib/clip/net.sub"
+	local conf_file="/etc/admin/conf.d/net"
+
+	local admin_if=""
+	IMPORT_ADDRESSES="ADMIN_ADDR"
+
+	import_conf_noerr "${conf_file}" "${_IMPORT_FILTER_ADDR}|virtual" $IMPORT_ADDRESSES 2>/dev/null
+}
+
+start_jail() {
+	local opt="-a ${ADMIN_LOCAL_ADDR}/255.255.255.255 -l ${ADMIN_LOCAL_ADDR}"
+	if [[ -n "${ADMIN_ADDR}" && "${ADMIN_ADDR}" != "virtual" ]]; then
+		opt="${opt} -a ${ADMIN_ADDR}/255.255.255.255 -b ${ADMIN_ADDR}"
+	fi
+
+	if ! jail_setup_wait "admin" ${opt}; then
+		ewarn "Failed to set up admin jail"
+		return 1
+	fi
+	if ! vsctl admin enter -i /dev/null -o /dev/null -- /sbin/sshd ; then
+		ewarn "Failed to run sshd in ADMIN"
+		return 1
+	fi
+}
+
+start_monitor() {
+	local statusd="/usr/local/bin/status-monitor.py"
+	if [[ -x "${statusd}" ]]; then
+		local menu="/usr/local/var/menu-xdg"
+		[[ -d "${menu}" ]] || mkdir -p "${menu}"
+		chmod 0755 "${menu}"
+
+		for d in media net power sys; do
+			[[ -e "${menu}/${d}" ]] && rm -rf -- "${menu}/${d}"
+			mkdir -- "${menu}/${d}"
+			chgrp admin -- "${menu}/${d}"
+			chmod 0775 -- "${menu}/${d}"
+		done
+
+		[[ ! -e "/usr/local/var/usb_status" ]] \
+			|| echo "level: 0" > "/usr/local/var/usb_status"
+
+		if ! vsctl admin enter -u 4000 -g 4000 \
+				-i /dev/null -o /dev/null -d -- "${statusd}"; then
+			ewarn "Failed to launch status monitor"
+			return 1
+		fi
+	fi
+}
+
+start() {
+	import_files
+	get_conf 
+	ebegin "Setting up admin service"
+
+	if ! start_jail; then
+		eend 1 
+		return 1
+	fi
+	start_monitor
+	eend $?
+}
+
+stop() {
+	import_files
+	ebegin "Stopping admin service"
+	jail_terminate "admin"
+	eend $?
+	rm -rf "/usr/local/var/menu-xdg"
+}
